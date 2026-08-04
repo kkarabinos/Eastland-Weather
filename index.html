@@ -1,0 +1,169 @@
+<!-- 
+  Cook Canyon Ranch (TA25) Current Weather Widget
+  Paste this entire block into an ArcGIS StoryMaps "Embed" block (choose "Embed code" / custom HTML).
+  Pulls live data from Open-Meteo (free, no API key required, CORS-enabled).
+  Coordinates: Cook Canyon Ranch Airport / TA25, Ranger, TX (32.4317, -98.5948)
+-->
+<style>
+  html, body { margin:0; padding:0; overflow:hidden; width:100%; height:100%; }
+  #eastland-weather, #eastland-weather * { box-sizing:border-box; }
+</style>
+<div id="eastland-weather" style="font-family: 'Playfair Display', Georgia, 'Times New Roman', serif; background:#FAF2E6; padding:18px 20px 32px 20px; border-radius:6px; width:100%; max-width:1400px; margin:0 auto; box-sizing:border-box;">
+  <div id="ew-condition" style="text-align:center; font-size:28px; font-weight:700; color:#3E2F23; margin-bottom:14px; letter-spacing:0.02em;"></div>
+  <div id="ew-row-top" style="display:flex; flex-wrap:nowrap; justify-content:center; align-items:flex-start; gap:40px; margin-bottom:30px;">
+    <!-- Today / Sunrise / Sunset injected by JS -->
+  </div>
+  <div id="ew-row" style="display:flex; flex-wrap:nowrap; justify-content:center; align-items:flex-start; gap:40px; overflow-x:auto; padding-bottom:2px;">
+    <!-- High / Low / Wind injected by JS -->
+  </div>
+  <div id="ew-meta" style="text-align:center; margin-top:26px; font-family: Georgia, serif; font-size:11px; color:#8a7a63; letter-spacing:0.03em;"></div>
+</div>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&display=swap">
+
+<script>
+(function () {
+  var LAT = 32.4317, LON = -98.5948; // Cook Canyon Ranch Airport (TA25), Ranger, TX
+  var GOLD = "#8A1E04";
+  var BROWN = "#3E2F23";
+
+  var ICONS = {
+    wind: '<svg viewBox="0 0 100 100" width="46" height="46"><line x1="50" y1="82" x2="50" y2="18" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/><path d="M32 36 L50 14 L68 36" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    high: '<svg viewBox="0 0 100 100" width="46" height="46"><path d="M50 15 L50 55" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/><path d="M35 32 L50 15 L65 32" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="50" cy="72" r="14" fill="#FFFFFF"/></svg>',
+    low: '<svg viewBox="0 0 100 100" width="46" height="46"><path d="M50 85 L50 45" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/><path d="M35 68 L50 85 L65 68" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="50" cy="28" r="14" fill="#FFFFFF"/></svg>',
+    precip: '<svg viewBox="0 0 100 100" width="46" height="46"><path d="M50 18 C38 38 26 52 26 66 a24 24 0 0 0 48 0 C74 52 62 38 50 18 Z" fill="#FFFFFF"/></svg>',
+    sunny: '<svg viewBox="0 0 100 100" width="46" height="46"><circle cx="50" cy="50" r="18" fill="#FFFFFF"/><g stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"><line x1="50" y1="10" x2="50" y2="22"/><line x1="50" y1="78" x2="50" y2="90"/><line x1="10" y1="50" x2="22" y2="50"/><line x1="78" y1="50" x2="90" y2="50"/><line x1="22" y1="22" x2="30" y2="30"/><line x1="70" y1="70" x2="78" y2="78"/><line x1="78" y1="22" x2="70" y2="30"/><line x1="30" y1="70" x2="22" y2="78"/></g></svg>',
+    partly_cloudy: '<svg viewBox="0 0 100 100" width="46" height="46"><circle cx="38" cy="34" r="14" fill="#FFFFFF"/><path d="M28 72 a18 18 0 0 1 -2 -35.8 A22 22 0 0 1 68 42 a16 16 0 0 1 -2 30 Z" fill="#FFFFFF" opacity="0.92"/></svg>',
+    cloudy: '<svg viewBox="0 0 100 100" width="46" height="46"><path d="M26 74 a20 20 0 0 1 -2 -39.6 A24 24 0 0 1 70 40 a18 18 0 0 1 -2 34 Z" fill="#FFFFFF"/></svg>',
+    fog: '<svg viewBox="0 0 100 100" width="46" height="46"><g stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"><line x1="18" y1="38" x2="82" y2="38"/><line x1="14" y1="54" x2="86" y2="54"/><line x1="22" y1="70" x2="78" y2="70"/></g></svg>',
+    rain: '<svg viewBox="0 0 100 100" width="46" height="46"><path d="M24 56 a18 18 0 0 1 -1 -35.6 A22 22 0 0 1 66 26 a16 16 0 0 1 -1 30 Z" fill="#FFFFFF"/><g stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"><line x1="34" y1="68" x2="28" y2="86"/><line x1="52" y1="68" x2="46" y2="86"/><line x1="70" y1="68" x2="64" y2="86"/></g></svg>',
+    snow: '<svg viewBox="0 0 100 100" width="46" height="46"><path d="M24 52 a18 18 0 0 1 -1 -35.6 A22 22 0 0 1 66 22 a16 16 0 0 1 -1 30 Z" fill="#FFFFFF"/><g stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"><line x1="34" y1="68" x2="34" y2="86"/><line x1="26" y1="77" x2="42" y2="77"/><line x1="66" y1="68" x2="66" y2="86"/><line x1="58" y1="77" x2="74" y2="77"/></g></svg>',
+    storm: '<svg viewBox="0 0 100 100" width="46" height="46"><path d="M24 50 a18 18 0 0 1 -1 -35.6 A22 22 0 0 1 66 20 a16 16 0 0 1 -1 30 Z" fill="#FFFFFF"/><path d="M56 62 L42 82 H54 L44 96 L70 70 H58 Z" fill="#FFFFFF"/></svg>',
+    sunrise: '<svg viewBox="0 0 100 100" width="46" height="46"><path d="M50 30 A20 20 0 0 1 70 50 H30 A20 20 0 0 1 50 30 Z" fill="#FFFFFF"/><line x1="14" y1="50" x2="86" y2="50" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/><g stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"><line x1="50" y1="8" x2="50" y2="16"/><line x1="22" y1="22" x2="28" y2="28"/><line x1="78" y1="22" x2="72" y2="28"/></g><path d="M38 66 L50 78 L62 66" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    sunset: '<svg viewBox="0 0 100 100" width="46" height="46"><path d="M50 30 A20 20 0 0 1 70 50 H30 A20 20 0 0 1 50 30 Z" fill="#FFFFFF"/><line x1="14" y1="50" x2="86" y2="50" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/><g stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"><line x1="50" y1="8" x2="50" y2="16"/><line x1="22" y1="22" x2="28" y2="28"/><line x1="78" y1="22" x2="72" y2="28"/></g><path d="M38 78 L50 66 L62 78" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  };
+
+  // Converts a wind direction in degrees to a compass abbreviation (N, NE, E, etc.).
+  function compassDirection(deg) {
+    var dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+    var idx = Math.round(deg / 22.5) % 16;
+    return dirs[idx];
+  }
+
+  // Maps Open-Meteo's WMO weather codes to a plain-language label and icon key.
+  function conditionFromCode(code) {    var map = {
+      0: ['Clear', 'sunny'],
+      1: ['Mostly Clear', 'sunny'],
+      2: ['Partly Cloudy', 'partly_cloudy'],
+      3: ['Overcast', 'cloudy'],
+      45: ['Foggy', 'fog'],
+      48: ['Foggy', 'fog'],
+      51: ['Light Drizzle', 'rain'],
+      53: ['Drizzle', 'rain'],
+      55: ['Heavy Drizzle', 'rain'],
+      56: ['Freezing Drizzle', 'rain'],
+      57: ['Freezing Drizzle', 'rain'],
+      61: ['Light Rain', 'rain'],
+      63: ['Rain', 'rain'],
+      65: ['Heavy Rain', 'rain'],
+      66: ['Freezing Rain', 'rain'],
+      67: ['Freezing Rain', 'rain'],
+      71: ['Light Snow', 'snow'],
+      73: ['Snow', 'snow'],
+      75: ['Heavy Snow', 'snow'],
+      77: ['Snow Grains', 'snow'],
+      80: ['Rain Showers', 'rain'],
+      81: ['Rain Showers', 'rain'],
+      82: ['Heavy Showers', 'rain'],
+      85: ['Snow Showers', 'snow'],
+      86: ['Snow Showers', 'snow'],
+      95: ['Thunderstorm', 'storm'],
+      96: ['Thunderstorm', 'storm'],
+      99: ['Severe Thunderstorm', 'storm']
+    };
+    return map[code] || ['Conditions Unavailable', 'cloudy'];
+  }
+
+  function shield(iconKey, rotateDeg) {
+    var scale = 0.6; // shrinks the 46px icon so the whole badge matches the text stack height
+    var rotateStyle = rotateDeg ? ' transform:rotate(' + rotateDeg + 'deg); transform-origin: 12px 12px;' : '';
+    return '<div style="width:50px;height:50px;position:relative;">' +
+      '<svg viewBox="0 0 100 100" width="50" height="50" style="position:absolute;top:0;left:0;">' +
+        '<circle cx="50" cy="50" r="48" fill="' + GOLD + '"/>' +
+      '</svg>' +
+      '<div style="position:absolute;top:12px;left:12px;' + rotateStyle + '">' +
+        '<div style="transform:scale(' + scale + '); transform-origin: 0 0;">' + ICONS[iconKey] + '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function item(iconKey, value, label, fontSize, rotateDeg) {
+    var size = fontSize || 32;
+    return '<div style="display:flex; flex-direction:row; align-items:center; gap:14px; flex-shrink:0;">' +
+        shield(iconKey, rotateDeg) +
+        '<div style="display:flex; flex-direction:column; align-items:flex-start; text-align:left;">' +
+          '<div style="font-size:' + size + 'px; font-weight:900; color:' + BROWN + '; line-height:1.05; white-space:nowrap;">' + value + '</div>' +
+          '<div style="font-size:14px; color:' + BROWN + '; font-family: Georgia, serif; letter-spacing:0.02em; margin-top:2px;">' + label + '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function formatTime(isoString) {
+    var d = new Date(isoString);
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function render(data) {
+    var rowTop = document.getElementById('ew-row-top');
+    var row = document.getElementById('ew-row');
+    var meta = document.getElementById('ew-meta');
+    var conditionEl = document.getElementById('ew-condition');
+    if (!data) {
+      row.innerHTML = '<div style="color:' + BROWN + '; font-family: Georgia, serif;">Weather data is temporarily unavailable.</div>';
+      rowTop.innerHTML = '';
+      conditionEl.textContent = '';
+      return;
+    }
+    var wind = Math.round(data.current.wind_speed_10m);
+    var windDir = compassDirection(data.current.wind_direction_10m);
+    var high = Math.round(data.daily.temperature_2m_max[0]);
+    var low = Math.round(data.daily.temperature_2m_min[0]);
+    var sunrise = formatTime(data.daily.sunrise[0]);
+    var sunset = formatTime(data.daily.sunset[0]);
+
+    var cond = conditionFromCode(data.current.weather_code);
+    var todayCond = conditionFromCode(data.daily.weather_code[0]);
+    var currentTemp = Math.round(data.current.temperature_2m);
+    conditionEl.textContent = 'Currently ' + currentTemp + '\u00B0 \u2014 ' + cond[0];
+
+    rowTop.innerHTML =
+      item('sunrise', sunrise, 'Sunrise', 22) +
+      item('sunset', sunset, 'Sunset', 22);
+
+    row.innerHTML =
+      item(todayCond[1], todayCond[0], 'Today', 22) +
+      item('high', high + '\u00B0', 'High \u00B0F') +
+      item('low', low + '\u00B0', 'Low \u00B0F') +
+      item('wind', wind + ' mph', 'Wind \u00B7 ' + windDir, null, (data.current.wind_direction_10m + 180) % 360);
+
+    var updated = new Date(data.current.time);
+    meta.textContent = 'Cook Canyon Ranch, TX \u2014 Updated ' + updated.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + LAT + '&longitude=' + LON +
+    '&current=temperature_2m,wind_speed_10m,wind_direction_10m,weather_code' +
+    '&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code' +
+    '&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=America%2FChicago';
+
+  function fetchAndRender() {
+    fetch(url)
+      .then(function (r) { return r.json(); })
+      .then(render)
+      .catch(function () { render(null); });
+  }
+
+  fetchAndRender();
+  // Re-fetch every 24 hours in case the story map stays open in a browser tab.
+  setInterval(fetchAndRender, 24 * 60 * 60 * 1000);
+})();
+</script>
